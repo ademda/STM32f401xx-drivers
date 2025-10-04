@@ -276,6 +276,45 @@ GPIO_IRQInterruptConfig(IRQ_NO_EXTI15_10, ENABLE);
 
 ---
 
+## Logic Analyzer Test Results
+
+This section shows real hardware verification of the drivers using logic analyzer captures, demonstrating that the drivers work correctly with actual hardware.
+
+### UART Communication Tests
+
+#### UART Transmission (TX)
+![UART TX Logic Analyzer Capture](images/UART_TX.png)
+*UART transmission test showing proper data frame format with start bit, data bits, and stop bit at 9600 baud*
+
+#### UART Reception (RX) 
+![UART RX Logic Analyzer Capture](images/UART_RX.png)
+*UART reception test demonstrating successful data reception and processing*
+
+#### STM32-ESP32 UART Communication
+![STM32-ESP32 UART Circuit](images/STM-ESP-UART-circuit.jpg)
+*Hardware setup for STM32 to ESP32 UART communication testing*
+
+![ESP32 UART RX](images/ESP32_UART_RX.png)
+*ESP32 receiving data from STM32 via UART, showing successful inter-microcontroller communication*
+
+### SPI Communication Test
+![SPI Logic Analyzer Capture](images/SPI.png)
+*SPI communication test showing clock (SCLK), chip select (CS), and data (MOSI/MISO) signals with proper timing relationships*
+
+### I2C Communication Test  
+![I2C Logic Analyzer Capture](images/I2C.png)
+*I2C communication test displaying start condition, address phase, data transmission, and stop condition with proper acknowledge bits*
+
+### Test Environment
+- **Logic Analyzer**: Used for signal verification and timing analysis
+- **STM32F401RE**: Primary microcontroller running custom drivers
+- **ESP32**: Secondary device for communication testing
+- **Oscilloscope**: Additional verification of signal quality and timing
+
+These captures prove that the custom drivers correctly implement the communication protocols and can successfully interface with external devices.
+
+---
+
 ## Project Structure
 
 ```
@@ -353,7 +392,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgments
 
-- STM32F401xx Reference Manual (RM0368)
-- STM32F401xB/STM32F401xC Datasheet  
+- [STM32F401xx Reference Manual (RM0368)](https://www.st.com/resource/en/reference_manual/rm0368-stm32f401xbc-and-stm32f401xde-advanced-armbased-32bit-mcus-stmicroelectronics.pdf)
+- [STM32F401xB/STM32F401xC Datasheet](https://www.st.com/resource/en/datasheet/stm32f401re.pdf)
+- [STM32 Nucleo-64 Boards User Manual (UM1724)](https://www.st.com/resource/en/user_manual/um1724-stm32-nucleo64-boards-mb1136-stmicroelectronics.pdf)
 - ARM Cortex-M4 Technical Reference Manual
 - STM32CubeIDE Development Environment
