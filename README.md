@@ -1,11 +1,11 @@
-# STM32f401xx-drivers
-In this repository you find UART/USART, SPI, I2C, GPIO, RCC and EXTI drivers for STM32f407xx MCU with documentation
 # STM32F401xx Peripheral Drivers
 
 This repository contains custom peripheral drivers for the STM32F401xx microcontroller family, developed from scratch without using HAL libraries.
 
 ## Table of Contents
 - [Overview](#overview)
+- [Driver Architecture](#driver-architecture)
+- [Register Categories](#register-categories)
 - [GPIO Driver](#gpio-driver)
 - [SPI Driver](#spi-driver)
 - [I2C Driver](#i2c-driver)
@@ -17,380 +17,198 @@ This repository contains custom peripheral drivers for the STM32F401xx microcont
 
 ## Overview
 
-This project provides low-level drivers for STM32F401xx peripherals, offering direct register-level control with a clean API interface. All drivers are built without dependencies on ST's HAL libraries.
+This project provides low-level drivers for STM32F401xx peripherals, offering direct register-level control with a clean API interface. All drivers are built without dependencies on ST's HAL libraries, providing maximum control and minimal overhead.
 
 **Supported Peripherals:**
-- GPIO (General Purpose Input/Output)
-- SPI (Serial Peripheral Interface)
-- I2C (Inter-Integrated Circuit)
-- USART (Universal Synchronous/Asynchronous Receiver/Transmitter)
-- RCC (Reset and Clock Control)
-- EXTI (External Interrupt)
+- **GPIO** (General Purpose Input/Output)
+- **SPI** (Serial Peripheral Interface)
+- **I2C** (Inter-Integrated Circuit)
+- **USART** (Universal Synchronous/Asynchronous Receiver/Transmitter)
+- **RCC** (Reset and Clock Control)
+- **EXTI** (External Interrupt/Event Controller)
+
+---
+
+## Driver Architecture
+
+### Register-Level Programming Philosophy
+Each driver is built around direct manipulation of hardware registers, providing:
+- **Maximum Performance**: No abstraction overhead
+- **Complete Control**: Access to all peripheral features
+- **Educational Value**: Understanding hardware operation
+- **Minimal Footprint**: Optimized code size and RAM usage
+
+### Common Driver Structure
+All drivers follow a consistent pattern:
+- **Configuration Structures**: Define peripheral parameters
+- **Handle Structures**: Combine peripheral base address with configuration
+- **Init/DeInit Functions**: Setup and reset peripherals
+- **Operational Functions**: Perform data transfer and control
+- **Interrupt Support**: Handle events and errors
+
+---
+
+## Register Categories
+
+### Configuration Registers (CRx)
+**Purpose**: Control how the peripheral operates
+- Set operating modes (master/slave, input/output, etc.)
+- Configure timing parameters (baud rates, clock phases)
+- Enable/disable specific features
+- Select alternate functions
+
+**Example**: USART_CR1 enables transmitter/receiver, sets word length, configures parity
+
+### Status Registers (SR)
+**Purpose**: Provide real-time peripheral state information
+- Indicate data availability (RXNE - Receive Not Empty)
+- Show transmission status (TXE - Transmit Empty, TC - Transmission Complete)
+- Report error conditions (overrun, parity errors, bus faults)
+- Display busy/idle states
+
+**Example**: SPI_SR shows when data can be written (TXE) or read (RXNE)
+
+### Data Registers (DR)
+**Purpose**: Hold actual data being transmitted or received
+- Single point for data input/output
+- Often trigger automatic flag updates when accessed
+- May have different behavior for read vs write operations
+
+**Example**: USART_DR automatically clears RXNE when read, sets TXE when written
 
 ---
 
 ## GPIO Driver
 
-### Configuration Registers (CRx)
+### Register Overview
+GPIO peripherals use several register types to provide complete pin control:
 
-#### MODER (Mode Register)
-Controls the I/O direction mode of each pin:
-- `00`: Input mode
-- `01`: General purpose output mode
-- `10`: Alternate function mode
-- `11`: Analog mode
+#### Configuration Registers
+- **MODER**: Selects pin mode (input, output, alternate function, analog)
+- **OTYPER**: Configures output type (push-pull or open-drain)
+- **OSPEEDR**: Sets output switching speed (low to very high)
+- **PUPDR**: Enables internal pull-up or pull-down resistors
+- **AFRL/AFRH**: Maps pins to alternate functions (USART, SPI, etc.)
 
-#### OTYPER (Output Type Register)
-Configures the output type:
-- `0`: Push-pull
-- `1`: Open-drain
+#### Data Registers
+- **IDR**: Reads current input state of pins (read-only)
+- **ODR**: Controls output state of pins (read/write)
+- **BSRR**: Provides atomic set/reset operations (write-only)
 
-#### OSPEEDR (Output Speed Register)
-Controls the I/O output speed:
-- `00`: Low speed
-- `01`: Medium speed
-- `10`: High speed
-- `11`: Very high speed
-
-#### PUPDR (Pull-up/Pull-down Register)
-Configures internal pull resistors:
-- `00`: No pull-up, no pull-down
-- `01`: Pull-up
-- `10`: Pull-down
-- `11`: Reserved
-
-#### AFRL/AFRH (Alternate Function Registers)
-Selects alternate function for pins (AF0-AF15).
-
-### Status Registers
-
-#### IDR (Input Data Register)
-- **Read-only** register containing input values of GPIO pins
-- Each bit represents the input state of corresponding pin
-
-#### ODR (Output Data Register)
-- **Read/Write** register for output data
-- Writing sets output value for pins configured as outputs
-
-### Key Features
-- Pin-level configuration control
-- Interrupt support via EXTI
-- Alternate function mapping
-- Atomic bit set/reset operations
+### Key Concepts
+- **Alternate Functions**: Allow pins to be controlled by other peripherals
+- **Atomic Operations**: BSRR enables thread-safe pin control
+- **Speed vs Power**: Higher speeds consume more power
+- **Pull Resistors**: Prevent floating inputs, provide default states
 
 ---
 
 ## SPI Driver
 
-### Configuration Registers
+### Register Overview
+SPI communication requires coordination between configuration, status, and data registers:
 
-#### CR1 (Control Register 1)
-- **CPHA** [0]: Clock phase
-- **CPOL** [1]: Clock polarity  
-- **MSTR** [2]: Master selection
-- **BR[2:0]** [5:3]: Baud rate control
-- **SPE** [6]: SPI enable
-- **LSBFIRST** [7]: Frame format
-- **SSI** [8]: Internal slave select
-- **SSM** [9]: Software slave management
-- **RXONLY** [10]: Receive only
-- **DFF** [11]: Data frame format (8/16-bit)
-- **CRCNEXT** [12]: CRC transfer next
-- **CRCEN** [13]: Hardware CRC calculation enable
-- **BIDIOE** [14]: Output enable in bidirectional mode
-- **BIDIMODE** [15]: Bidirectional data mode enable
+#### Configuration Philosophy
+- **CR1**: Primary control (master/slave, clock polarity/phase, enable)
+- **CR2**: Secondary features (DMA, interrupts, NSS control)
 
-#### CR2 (Control Register 2)
-- **RXDMAEN** [0]: RX buffer DMA enable
-- **TXDMAEN** [1]: TX buffer DMA enable
-- **SSOE** [2]: SS output enable
-- **FRF** [4]: Frame format (SPI/TI)
-- **ERRIE** [5]: Error interrupt enable
-- **RXNEIE** [6]: RX buffer not empty interrupt enable
-- **TXEIE** [7]: TX buffer empty interrupt enable
+#### Status Monitoring
+- **SR**: Critical for timing (TXE for writes, RXNE for reads, BSY for completion)
 
-### Status Register (SR)
-- **RXNE** [0]: Receive buffer not empty
-- **TXE** [1]: Transmit buffer empty
-- **CHSIDE** [2]: Channel side (I2S)
-- **UDR** [3]: Underrun flag (I2S)
-- **CRCERR** [4]: CRC error flag
-- **MODF** [5]: Mode fault
-- **OVR** [6]: Overrun flag
-- **BSY** [7]: Busy flag
-- **FRE** [8]: Frame error (TI mode)
-
-### Supported Modes
-- Master/Slave operation
-- Full-duplex, Half-duplex, Simplex
-- 8-bit and 16-bit data frames
-- Hardware/Software NSS management
+### Key Concepts
+- **Clock Configuration**: CPOL and CPHA determine when data is sampled
+- **Master/Slave Roles**: Master generates clock, slave responds to it
+- **Full/Half Duplex**: Simultaneous vs sequential communication
+- **NSS Management**: Hardware or software control of chip select
 
 ---
 
 ## I2C Driver
 
-### Configuration Registers
+### Register Overview
+I2C requires complex state management due to its multi-master, addressed protocol:
 
-#### CR1 (Control Register 1)
-- **PE** [0]: Peripheral enable
-- **SMBUS** [1]: SMBus mode
-- **SMBTYPE** [3]: SMBus type
-- **ENARP** [4]: ARP enable
-- **ENPEC** [5]: PEC enable
-- **ENGC** [6]: General call enable
-- **NOSTRETCH** [7]: Clock stretching disable
-- **START** [8]: Start generation
-- **STOP** [9]: Stop generation
-- **ACK** [10]: Acknowledge enable
-- **POS** [11]: Acknowledge/PEC position
-- **PEC** [12]: Packet error checking
-- **ALERT** [13]: SMBus alert
-- **SWRST** [15]: Software reset
+#### Configuration Complexity
+- **CR1**: Protocol control (start/stop generation, ACK control)
+- **CR2**: Clock and interrupt configuration
+- **CCR**: Clock timing for standard/fast modes
 
-#### CR2 (Control Register 2)
-- **FREQ[5:0]** [5:0]: Peripheral clock frequency
-- **ITERREN** [8]: Error interrupt enable
-- **ITEVTEN** [9]: Event interrupt enable
-- **ITBUFEN** [10]: Buffer interrupt enable
-- **DMAEN** [11]: DMA requests enable
-- **LAST** [12]: DMA last transfer
+#### Dual Status System
+- **SR1**: Event flags (start sent, address matched, data ready)
+- **SR2**: State information (master/slave, transmitter/receiver, bus busy)
 
-#### CCR (Clock Control Register)
-- **CCR[11:0]** [11:0]: Clock control register
-- **DUTY** [14]: FM mode duty cycle
-- **FS** [15]: Fast mode selection
-
-### Status Registers
-
-#### SR1 (Status Register 1)
-- **SB** [0]: Start bit
-- **ADDR** [1]: Address sent/matched
-- **BTF** [2]: Byte transfer finished
-- **ADD10** [3]: 10-bit header sent
-- **STOPF** [4]: Stop detection
-- **RXNE** [6]: Data register not empty
-- **TXE** [7]: Data register empty
-- **BERR** [8]: Bus error
-- **ARLO** [9]: Arbitration lost
-- **AF** [10]: Acknowledge failure
-- **OVR** [11]: Overrun/Underrun
-- **PECERR** [12]: PEC error
-- **TIMEOUT** [14]: Timeout error
-- **SMBALERT** [15]: SMBus alert
-
-#### SR2 (Status Register 2)
-- **MSL** [0]: Master/Slave
-- **BUSY** [1]: Bus busy
-- **TRA** [2]: Transmitter/Receiver
-- **GENCALL** [4]: General call address
-- **SMBDEFAULT** [5]: SMBus device default address
-- **SMBHOST** [6]: SMBus host header
-- **DUALF** [7]: Dual flag
-- **PEC[7:0]** [15:8]: Packet error checking register
-
-### Communication Modes
-- Standard mode (up to 100 kHz)
-- Fast mode (up to 400 kHz)
-- 7-bit and 10-bit addressing
-- Master and Slave operation
+### Key Concepts
+- **Address Phase**: Every transaction begins with slave address
+- **ACK/NACK**: Receiver must acknowledge each byte
+- **Clock Stretching**: Slaves can pause communication
+- **Multi-Master**: Multiple devices can initiate communication
 
 ---
 
 ## USART Driver
 
-### Configuration Registers
+### Register Overview
+USART provides flexible serial communication with extensive configuration options:
 
-#### CR1 (Control Register 1)
-- **SBK** [0]: Send break
-- **RWU** [1]: Receiver wakeup
-- **RE** [2]: Receiver enable
-- **TE** [3]: Transmitter enable
-- **IDLEIE** [4]: IDLE interrupt enable
-- **RXNEIE** [5]: RXNE interrupt enable
-- **TCIE** [6]: Transmission complete interrupt enable
-- **TXEIE** [7]: TXE interrupt enable
-- **PEIE** [8]: PE interrupt enable
-- **PS** [9]: Parity selection
-- **PCE** [10]: Parity control enable
-- **WAKE** [11]: Wakeup method
-- **M** [12]: Word length
-- **UE** [13]: USART enable
-- **OVER8** [15]: Oversampling mode
+#### Multi-Register Configuration
+- **CR1**: Basic operation (TX/RX enable, word length, parity)
+- **CR2**: Frame format (stop bits, clock control)
+- **CR3**: Advanced features (flow control, DMA, error handling)
+- **BRR**: Baud rate generation (calculated from clock frequency)
 
-#### CR2 (Control Register 2)
-- **ADD[3:0]** [3:0]: Address of USART node
-- **LBDL** [5]: LIN break detection length
-- **LBDIE** [6]: LIN break detection interrupt enable
-- **LBCL** [8]: Last bit clock pulse
-- **CPHA** [9]: Clock phase
-- **CPOL** [10]: Clock polarity
-- **CLKEN** [11]: Clock enable
-- **STOP[1:0]** [13:12]: Stop bits
-- **LINEN** [14]: LIN mode enable
+#### Status and Data Flow
+- **SR**: Transmission status and error flags
+- **DR**: Single register for both TX and RX data
 
-#### CR3 (Control Register 3)
-- **EIE** [0]: Error interrupt enable
-- **IREN** [1]: IrDA mode enable
-- **IRLP** [2]: IrDA low-power
-- **HDSEL** [3]: Half-duplex selection
-- **NACK** [4]: Smartcard NACK enable
-- **SCEN** [5]: Smartcard mode enable
-- **DMAR** [6]: DMA enable receiver
-- **DMAT** [7]: DMA enable transmitter
-- **RTSE** [8]: RTS enable
-- **CTSE** [9]: CTS enable
-- **CTSIE** [10]: CTS interrupt enable
-- **ONEBIT** [11]: One sample bit method enable
-
-### Status Register (SR)
-- **PE** [0]: Parity error
-- **FE** [1]: Framing error
-- **NE** [2]: Noise detected flag
-- **ORE** [3]: Overrun error
-- **IDLE** [4]: IDLE line detected
-- **RXNE** [5]: Read data register not empty
-- **TC** [6]: Transmission complete
-- **TXE** [7]: Transmit data register empty
-- **LBD** [8]: LIN break detection flag
-- **CTS** [9]: CTS flag
-
-### BRR (Baud Rate Register)
-- **DIV_Fraction[3:0]** [3:0]: Fraction of USARTDIV
-- **DIV_Mantissa[11:0]** [15:4]: Mantissa of USARTDIV
-
-### Communication Features
-- Asynchronous/Synchronous modes
-- Hardware flow control (RTS/CTS)
-- Multi-processor communication
-- LIN (Local Interconnect Network) support
-- IrDA SIR support
-- Smartcard mode
+### Key Concepts
+- **Baud Rate Calculation**: Complex formula involving clock frequency and oversampling
+- **Frame Format**: Start bit, data bits, parity bit, stop bits
+- **Flow Control**: RTS/CTS prevents buffer overflow
+- **Error Detection**: Parity, framing, and overrun error detection
 
 ---
 
 ## RCC Driver
 
-### Configuration Registers
+### Register Overview
+RCC manages all system and peripheral clocks:
 
-#### CR (Clock Control Register)
-- **HSION** [0]: HSI clock enable
-- **HSIRDY** [1]: HSI clock ready flag
-- **HSITRIM[4:0]** [7:3]: HSI clock trimming
-- **HSICAL[7:0]** [15:8]: HSI clock calibration
-- **HSEON** [16]: HSE clock enable
-- **HSERDY** [17]: HSE clock ready flag
-- **HSEBYP** [18]: HSE clock bypass
-- **CSSON** [19]: Clock security system enable
-- **PLLON** [24]: Main PLL enable
-- **PLLRDY** [25]: Main PLL ready flag
-- **PLLI2SON** [26]: PLLI2S enable
-- **PLLI2SRDY** [27]: PLLI2S ready flag
+#### Clock Sources and PLLs
+- **CR**: Enable/disable oscillators and PLLs
+- **PLLCFGR**: Configure PLL multiplication and division factors
+- **CFGR**: Select system clock source and prescalers
 
-#### PLLCFGR (PLL Configuration Register)
-- **PLLM[5:0]** [5:0]: Division factor for main PLL input clock
-- **PLLN[8:0]** [14:6]: Main PLL multiplication factor for VCO
-- **PLLP[1:0]** [17:16]: Main PLL division factor for main system clock
-- **PLLSRC** [22]: Main PLL entry clock source
-- **PLLQ[3:0]** [27:24]: Main PLL division factor for USB OTG FS, SDIO clocks
+#### Peripheral Clock Control
+- **AHB1ENR/AHB2ENR**: Enable clocks for AHB peripherals
+- **APB1ENR/APB2ENR**: Enable clocks for APB peripherals
 
-#### CFGR (Clock Configuration Register)
-- **SW[1:0]** [1:0]: System clock switch
-- **SWS[1:0]** [3:2]: System clock switch status
-- **HPRE[3:0]** [7:4]: AHB prescaler
-- **PPRE1[2:0]** [12:10]: APB Low speed prescaler (APB1)
-- **PPRE2[2:0]** [15:13]: APB high-speed prescaler (APB2)
-- **RTCPRE[4:0]** [20:16]: HSE division factor for RTC clock
-- **MCO1[1:0]** [22:21]: Microcontroller clock output 1
-- **MCO1PRE[2:0]** [26:24]: MCO1 prescaler
-- **MCO2PRE[2:0]** [29:27]: MCO2 prescaler
-- **MCO2[1:0]** [31:30]: Microcontroller clock output 2
-
-### Clock Enable Registers
-- **AHB1ENR**: AHB1 peripheral clock enable register
-- **AHB2ENR**: AHB2 peripheral clock enable register  
-- **APB1ENR**: APB1 peripheral clock enable register
-- **APB2ENR**: APB2 peripheral clock enable register
+### Key Concepts
+- **Clock Tree**: Hierarchical distribution from sources to peripherals
+- **PLL Configuration**: Multiply reference clocks to achieve desired frequencies
+- **Prescalers**: Divide clocks for different bus speeds
+- **Power Management**: Disable unused clocks to save power
 
 ---
 
 ## EXTI Configuration
 
-The External Interrupt/Event Controller (EXTI) manages external interrupts and events from GPIO pins and other sources.
+### Register Overview
+EXTI connects GPIO pins to the interrupt system:
 
-### Configuration Registers
+#### Event Configuration
+- **IMR/EMR**: Mask interrupts and events individually
+- **RTSR/FTSR**: Select rising and/or falling edge triggers
+- **PR**: Pending register shows which lines triggered
 
-#### IMR (Interrupt Mask Register)
-- **MR[15:0]**: Interrupt mask for lines 0-15
-- `1`: Interrupt request from line x is unmasked
-- `0`: Interrupt request from line x is masked
+#### GPIO Integration
+- **SYSCFG_EXTICR**: Maps EXTI lines to specific GPIO ports
+- **NVIC**: Interrupt controller receives EXTI signals
 
-#### EMR (Event Mask Register)  
-- **MR[15:0]**: Event mask for lines 0-15
-- `1`: Event request from line x is unmasked
-- `0`: Event request from line x is masked
-
-#### RTSR (Rising Trigger Selection Register)
-- **TR[15:0]**: Rising trigger event configuration for lines 0-15
-- `1`: Rising edge trigger enabled
-- `0`: Rising edge trigger disabled
-
-#### FTSR (Falling Trigger Selection Register)
-- **TR[15:0]**: Falling trigger event configuration for lines 0-15
-- `1`: Falling edge trigger enabled  
-- `0`: Falling edge trigger disabled
-
-#### SWIER (Software Interrupt Event Register)
-- **SWIER[15:0]**: Software interrupt for lines 0-15
-- `1`: Generates an interrupt/event request
-- `0`: No action
-
-#### PR (Pending Register)
-- **PR[15:0]**: Pending bit for lines 0-15
-- `1`: Selected trigger request occurred
-- `0`: No trigger request occurred
-- **Clear**: Write `1` to clear the bit
-
-### SYSCFG EXTICR Configuration
-
-The SYSCFG_EXTICR registers select which GPIO port is connected to each EXTI line:
-
-#### EXTICR1 (External Interrupt Configuration Register 1)
-- **EXTI3[3:0]** [15:12]: EXTI 3 configuration
-- **EXTI2[3:0]** [11:8]: EXTI 2 configuration  
-- **EXTI1[3:0]** [7:4]: EXTI 1 configuration
-- **EXTI0[3:0]** [3:0]: EXTI 0 configuration
-
-#### EXTICR2-4
-Similar configuration for EXTI lines 4-15.
-
-**Port Selection Values:**
-- `0000`: PA[x] pin
-- `0001`: PB[x] pin  
-- `0010`: PC[x] pin
-- `0011`: PD[x] pin
-- `0100`: PE[x] pin
-- `0101`: PF[x] pin
-- `0110`: PG[x] pin
-- `0111`: PH[x] pin
-
-### EXTI Line Mapping
-- **Lines 0-15**: Connected to GPIO pins (PA0-PA15, PB0-PB15, etc.)
-- **Line 16**: Connected to PVD output
-- **Line 17**: Connected to RTC Alarm event  
-- **Line 18**: Connected to USB OTG FS Wakeup event
-- **Line 21**: Connected to RTC Tamper and TimeStamp events
-- **Line 22**: Connected to RTC Wakeup event
-
-### NVIC Integration
-Each EXTI line maps to specific NVIC interrupt vectors:
-- **EXTI0**: EXTI0_IRQn (IRQ 6)
-- **EXTI1**: EXTI1_IRQn (IRQ 7)
-- **EXTI2**: EXTI2_IRQn (IRQ 8)  
-- **EXTI3**: EXTI3_IRQn (IRQ 9)
-- **EXTI4**: EXTI4_IRQn (IRQ 10)
-- **EXTI9_5**: EXTI9_5_IRQn (IRQ 23) - Lines 5-9
-- **EXTI15_10**: EXTI15_10_IRQn (IRQ 40) - Lines 10-15
+### Key Concepts
+- **Line Mapping**: Each EXTI line can connect to one GPIO pin from any port
+- **Edge vs Level**: EXTI only supports edge triggering
+- **Interrupt vs Event**: Interrupts call handlers, events can trigger DMA
+- **Priority**: NVIC manages interrupt priorities and nesting
 
 ---
 
